@@ -3,27 +3,36 @@
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { ReactNode } from "react";
+import { NetworkProvider, useNetwork } from "../context/NetworkContext";
 
 interface WalletContextProviderProps {
   children: ReactNode;
 }
 
-export function WalletContextProvider({ children }: WalletContextProviderProps) {
-  // Fallback to public devnet if environment variable is not set
-  const endpoint = process.env.NEXT_PUBLIC_ALCHEMY_DEVNET_ENDPOINT || 'https://api.devnet.solana.com';
-//   console.log(endpoint);
+function WalletProviderInner({ children }: WalletContextProviderProps) {
+  const { endpoint } = useNetwork();
   
   return (
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider wallets={[]} autoConnect>
         <WalletModalProvider>
-          <div className="w-screen overflow-x-hidden">
-            <div className="m-auto  flex flex-col max-w-3xl">
-            {children}
+          <div className="w-screen overflow-x-hidden min-h-screen">
+            <div className="m-auto flex flex-col max-w-7xl px-4 sm:px-6 lg:px-8">
+              {children}
             </div>
           </div>
         </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
+  );
+}
+
+export function WalletContextProvider({ children }: WalletContextProviderProps) {
+  return (
+    <NetworkProvider>
+      <WalletProviderInner>
+        {children}
+      </WalletProviderInner>
+    </NetworkProvider>
   );
 }
