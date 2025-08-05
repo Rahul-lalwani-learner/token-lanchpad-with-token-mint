@@ -23,6 +23,9 @@ export const metadata: Metadata = {
     description: "Create and deploy SPL tokens on Solana in minutes",
     type: "website",
   },
+  icons: {
+    icon: "/favicon.png",
+  }
 };
 
 export default function RootLayout({
