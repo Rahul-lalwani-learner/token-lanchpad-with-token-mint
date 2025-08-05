@@ -3,7 +3,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react"
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { Keypair, SystemProgram, Transaction, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { createInitializeMetadataPointerInstruction, createInitializeMintInstruction, ExtensionType, getMintLen, getAssociatedTokenAddressSync, LENGTH_SIZE, TOKEN_2022_PROGRAM_ID, TYPE_SIZE, createAssociatedTokenAccountInstruction, createMintToInstruction } from "@solana/spl-token";
+import { createInitializeMetadataPointerInstruction, createInitializeMintInstruction, ExtensionType, getMintLen, getAssociatedTokenAddressSync, LENGTH_SIZE, TOKEN_2022_PROGRAM_ID, TYPE_SIZE, createAssociatedTokenAccountInstruction, createMintToInstruction, getAccount } from "@solana/spl-token";
 import { createInitializeInstruction, pack } from "@solana/spl-token-metadata";
 import { useNetwork } from "../context/NetworkContext";
 
@@ -47,6 +47,7 @@ export function LanchPad(){
                 return;
             }
 
+            // --- Step 1: Derive the ATA address ---
             const associatedToken = getAssociatedTokenAddressSync(
                 mintPubkeyObj,
                 recipientPubkey,
@@ -54,29 +55,60 @@ export function LanchPad(){
                 TOKEN_2022_PROGRAM_ID
             );
 
-            const transaction = new Transaction().add(
-                createAssociatedTokenAccountInstruction(
-                    wallet.publicKey, 
-                    associatedToken, 
-                    recipientPubkey, 
-                    mintPubkeyObj, 
-                    TOKEN_2022_PROGRAM_ID
-                ),
+            console.log(`Derived ATA Address: ${associatedToken.toBase58()}`);
+
+            let ataExists = false;
+            
+            // --- Step 2: Check if the ATA exists ---
+            try {
+                await getAccount(connection, associatedToken, undefined, TOKEN_2022_PROGRAM_ID);
+                console.log("ATA exists and has been initialized.");
+                ataExists = true;
+            } catch (error) {
+                console.log("ATA does not exist or has not been initialized.");
+                ataExists = false;
+            }
+
+            // --- Step 3: Build transaction based on ATA existence ---
+            const transaction = new Transaction();
+
+            // Only add ATA creation instruction if it doesn't exist
+            if (!ataExists) {
+                console.log("Adding ATA creation instruction...");
+                transaction.add(
+                    createAssociatedTokenAccountInstruction(
+                        wallet.publicKey, 
+                        associatedToken, 
+                        recipientPubkey, 
+                        mintPubkeyObj, 
+                        TOKEN_2022_PROGRAM_ID
+                    )
+                );
+            }
+
+            // Always add the mint instruction
+            console.log("Adding mint instruction...");
+            transaction.add(
                 createMintToInstruction(
                     mintPubkeyObj, 
                     associatedToken,
-                    recipientPubkey, 
+                    wallet.publicKey, // mint authority (the wallet that created the token)
                     amount * LAMPORTS_PER_SOL, 
                     [], 
                     TOKEN_2022_PROGRAM_ID
                 )
             );
 
+            // Configure transaction
+            transaction.feePayer = wallet.publicKey;
+            transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+
             await wallet.sendTransaction(transaction, connection);
-            setMessage(`Successfully minted ${amount} tokens!`);
+            setMessage(`Successfully minted ${amount} tokens to ${recipientPubkey.toBase58()}!`);
+            
         } catch (error) {
             setMessage("Failed to mint tokens. Please check the addresses and try again.");
-            console.error(error);
+            console.error("Minting error:", error);
         } finally {
             setIsMinting(false);
         }
