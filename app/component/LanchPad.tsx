@@ -2,7 +2,7 @@
 import { useConnection, useWallet } from "@solana/wallet-adapter-react"
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { Keypair, SystemProgram, Transaction, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { Keypair, SystemProgram, PublicKey, LAMPORTS_PER_SOL, VersionedTransaction, TransactionMessage } from "@solana/web3.js";
 import { createInitializeMetadataPointerInstruction, createInitializeMintInstruction, ExtensionType, getMintLen, getAssociatedTokenAddressSync, LENGTH_SIZE, TOKEN_2022_PROGRAM_ID, TYPE_SIZE, createAssociatedTokenAccountInstruction, createMintToInstruction, getAccount } from "@solana/spl-token";
 import { createInitializeInstruction, pack } from "@solana/spl-token-metadata";
 import { useNetwork } from "../context/NetworkContext";
@@ -70,12 +70,12 @@ export function LanchPad(){
             }
 
             // --- Step 3: Build transaction based on ATA existence ---
-            const transaction = new Transaction();
+            const instructions = [];
 
             // Only add ATA creation instruction if it doesn't exist
             if (!ataExists) {
                 console.log("Adding ATA creation instruction...");
-                transaction.add(
+                instructions.push(
                     createAssociatedTokenAccountInstruction(
                         wallet.publicKey, 
                         associatedToken, 
@@ -88,7 +88,7 @@ export function LanchPad(){
 
             // Always add the mint instruction
             console.log("Adding mint instruction...");
-            transaction.add(
+            instructions.push(
                 createMintToInstruction(
                     mintPubkeyObj, 
                     associatedToken,
@@ -99,11 +99,51 @@ export function LanchPad(){
                 )
             );
 
-            // Configure transaction
-            transaction.feePayer = wallet.publicKey;
-            transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+            // --- Legacy Transaction Implementation (commented out) ---
+            // const transaction = new Transaction();
+            // // Only add ATA creation instruction if it doesn't exist
+            // if (!ataExists) {
+            //     console.log("Adding ATA creation instruction...");
+            //     transaction.add(
+            //         createAssociatedTokenAccountInstruction(
+            //             wallet.publicKey, 
+            //             associatedToken, 
+            //             recipientPubkey, 
+            //             mintPubkeyObj, 
+            //             TOKEN_2022_PROGRAM_ID
+            //         )
+            //     );
+            // }
+            // // Always add the mint instruction
+            // console.log("Adding mint instruction...");
+            // transaction.add(
+            //     createMintToInstruction(
+            //         mintPubkeyObj, 
+            //         associatedToken,
+            //         wallet.publicKey, // mint authority (the wallet that created the token)
+            //         amount * LAMPORTS_PER_SOL, 
+            //         [], 
+            //         TOKEN_2022_PROGRAM_ID
+            //     )
+            // );
+            // // Configure transaction
+            // transaction.feePayer = wallet.publicKey;
+            // transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+            // await wallet.sendTransaction(transaction, connection);
 
-            await wallet.sendTransaction(transaction, connection);
+            // --- New Versioned Transaction Implementation ---
+            // Create versioned transaction
+            const { blockhash } = await connection.getLatestBlockhash();
+            
+            const messageV0 = new TransactionMessage({
+                payerKey: wallet.publicKey,
+                recentBlockhash: blockhash,
+                instructions,
+            }).compileToV0Message();
+
+            const versionedTransaction = new VersionedTransaction(messageV0);
+
+            await wallet.sendTransaction(versionedTransaction, connection);
             setMessage(`Successfully minted ${amount} tokens to ${recipientPubkey.toBase58()}!`);
             
         } catch (error) {
@@ -146,7 +186,7 @@ export function LanchPad(){
             const metadataLen = TYPE_SIZE + LENGTH_SIZE + pack(metadata).length;
             const lamports = await connection.getMinimumBalanceForRentExemption(mintLen + metadataLen);
 
-            const transaction = new Transaction().add(
+            const instructions = [
                 SystemProgram.createAccount({
                     fromPubkey: wallet.publicKey, 
                     newAccountPubkey: metadata.mint,
@@ -166,13 +206,49 @@ export function LanchPad(){
                     mintAuthority: wallet.publicKey, 
                     updateAuthority: wallet.publicKey 
                 })
-            );
+            ];
 
-            transaction.feePayer = wallet.publicKey; 
-            transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-            transaction.partialSign(mintKeyPair); 
+            // --- Legacy Transaction Implementation (commented out) ---
+            // const transaction = new Transaction().add(
+            //     SystemProgram.createAccount({
+            //         fromPubkey: wallet.publicKey, 
+            //         newAccountPubkey: metadata.mint,
+            //         space: mintLen, 
+            //         lamports, 
+            //         programId: TOKEN_2022_PROGRAM_ID
+            //     }), 
+            //     createInitializeMetadataPointerInstruction(mintKeyPair.publicKey, wallet.publicKey, mintKeyPair.publicKey, TOKEN_2022_PROGRAM_ID),
+            //     createInitializeMintInstruction(mintKeyPair.publicKey, 9, wallet.publicKey, null, TOKEN_2022_PROGRAM_ID), 
+            //     createInitializeInstruction({
+            //         programId: TOKEN_2022_PROGRAM_ID, 
+            //         mint: mintKeyPair.publicKey, 
+            //         metadata: mintKeyPair.publicKey, 
+            //         name: metadata.name, 
+            //         symbol: metadata.symbol, 
+            //         uri: metadata.uri, 
+            //         mintAuthority: wallet.publicKey, 
+            //         updateAuthority: wallet.publicKey 
+            //     })
+            // );
+            // transaction.feePayer = wallet.publicKey; 
+            // transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+            // transaction.partialSign(mintKeyPair); 
+            // await wallet.sendTransaction(transaction, connection);
 
-            await wallet.sendTransaction(transaction, connection);
+            // --- New Versioned Transaction Implementation ---
+            // Create versioned transaction
+            const { blockhash } = await connection.getLatestBlockhash();
+            
+            const messageV0 = new TransactionMessage({
+                payerKey: wallet.publicKey,
+                recentBlockhash: blockhash,
+                instructions,
+            }).compileToV0Message();
+
+            const versionedTransaction = new VersionedTransaction(messageV0);
+            versionedTransaction.sign([mintKeyPair]);
+
+            await wallet.sendTransaction(versionedTransaction, connection);
             setMessage("Token created successfully!");
             setMintAddress(mintKeyPair.publicKey.toBase58());
         } catch (error) {
