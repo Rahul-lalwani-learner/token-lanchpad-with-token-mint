@@ -285,6 +285,28 @@ export function LanchPad(){
     
     return (
         <div className="max-w-4xl mx-auto px-4 py-8">
+            {/* Mobile Warning Banner */}
+            <div className="mb-8 mx-auto max-w-3xl">
+                <div className="bg-gradient-to-r from-orange-900/40 to-amber-900/40 border border-orange-500/50 rounded-lg p-4 shadow-lg shadow-orange-500/20 backdrop-blur-sm">
+                    <div className="flex items-start space-x-3">
+                        <div className="flex-shrink-0">
+                            <svg className="w-6 h-6 text-orange-400 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                            </svg>
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="text-sm font-semibold text-orange-300 mb-1">
+                                📱 Mobile Device Notice
+                            </h3>
+                            <p className="text-sm text-orange-200/90 leading-relaxed">
+                                For the best experience, please use a <span className="font-medium text-orange-100">desktop browser</span>. 
+                                Some mobile wallet adapters may not properly clear transactions, which could cause issues during token creation and minting.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* Header */}
             <div className="text-center mb-12">
                 <h1 className="text-4xl font-bold text-white mb-4">

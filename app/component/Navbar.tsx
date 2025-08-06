@@ -35,7 +35,7 @@ export function NavBar() {
             <nav className="sticky top-0 z-50 w-full border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm">
                 <div className="flex md:flex-row flex-col items-center justify-between w-full p-4 lg:px-8">
                     {/* Logo and Navigation */}
-                    <div className="flex items-center space-x-8">
+                    <div className="flex items-center space-x-1 sm:space-x-8">
                         <Link href="/" className="flex items-center space-x-2 text-xl font-bold text-white hover:text-blue-400 transition-colors">
                             <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                                 <span className="text-white font-bold text-sm">S</span>
